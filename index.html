@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>P.S.Search</title>
+  <style>
+    @font-face {
+      font-family: 'Oswald-Bold';
+      src: url('Oswald-Bold.woff2') format('woff2');
+      font-weight: bold;
+      font-style: normal;
+    }
+
+    body {
+      font-family: sans-serif;
+      background: #f8f8f8;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      text-align: center;
+      background: #fff;
+      padding: 15px;
+      border-bottom: 2px solid #ccc;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 2em;
+    }
+    header .highlight {
+      color: red;
+    }
+
+    .wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .hidden { display: none; }
+
+    .box, .btn {
+      margin-bottom: 15px;
+    }
+
+    input, select, button {
+      padding: 10px;
+      font-size: 1em;
+    }
+
+    .score-info, .player-scores {
+      font-family: 'Oswald-Bold', sans-serif;
+      font-weight: bold;
+    }
+
+    .score-info .highlight-target {
+      color: red;
+      font-size: 1.3em;
+    }
+    .score-info .score-value {
+      font-size: 1.3em;
+    }
+
+    .player-score-value {
+      font-size: 1.3em;
+    }
+
+    .score-info, .player-scores, .search-area, .digits, .digit-buttons,
+    .controls, .result-message, .used-words, .result-list {
+      background: #fff;
+      padding: 10px;
+      border: 1px solid #ccc;
+      margin-bottom: 15px;
+    }
+
+    .player-scores { display: flex; gap: 10px; justify-content: space-around; }
+
+    .search-area {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .search-area input { flex: 1; }
+
+    .digits {
+      display: flex;
+      justify-content: center;
+      gap: 15px;
+    }
+    .digit-box {
+      width: 60px;
+      height: 80px;
+      font-size: 2em;
+      text-align: center;
+      line-height: 80px;
+      border: 2px solid #000;
+    }
+
+    .digit-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+    }
+
+    .digit-buttons button {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      font-size: 1em;
+    }
+
+    .controls {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .controls button {
+      padding: 10px 20px;
+      font-size: 1em;
+    }
+
+    .used-words ul {
+      margin: 0;
+      padding-left: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1><span class="highlight">P.S.S</span>earch</h1>
+</header>
+
+<div class="wrapper">
+
+  <!-- 初期設定 -->
+  <div id="setupSection">
+    <div class="box">
+      <label>プレイヤー人数：
+        <select id="playerCount">
+          <option value="1">1人</option>
+          <option value="2" selected>2人</option>
+          <option value="3">3人</option>
+          <option value="4">4人</option>
+        </select>
+      </label>
+    </div>
+    <div class="box">
+      <label>目的値：
+        <select id="targetMode">
+          <option value="random" selected>ランダム</option>
+          <option value="manual">設定</option>
+        </select>
+        <input type="number" id="targetValue" placeholder="100〜8192" min="100" max="8192" style="width:150px;" class="hidden"/>
+      </label>
+    </div>
+    <div class="box">
+      <button onclick="startGame()">ゲーム開始</button>
+    </div>
+  </div>
+
+  <!-- ゲーム本体 -->
+  <div id="gameSection" class="hidden">
+    <div class="score-info" id="scoreInfo">残りポイント: 100 / 100</div>
+    <div class="player-scores" id="playerScores"></div>
+
+    <div class="search-area">
+      <input type="text" id="keywordInput" placeholder="検索ワードを入力" />
+      <button onclick="searchKeyword()">🔍</button>
+    </div>
+
+    <div class="digits">
+      <div class="digit-box" id="digit1">?</div>
+      <div class="digit-box" id="digit2">?</div>
+      <div class="digit-box" id="digit3">?</div>
+      <div class="digit-box" id="digit4">?</div>
+    </div>
+
+    <div class="digit-buttons">
+      <button onclick="revealDigit(1)">千</button>
+      <button onclick="revealDigit(2)">百</button>
+      <button onclick="revealDigit(3)">十</button>
+      <button onclick="revealDigit(4)">一</button>
+    </div>
+
+    <div class="result-message" id="resultMessage"></div>
+
+    <div class="controls">
+      <button onclick="nextPlayer()">次のプレイヤーへ</button>
+      <button onclick="showResults()">🔍 リザルトを表示</button>
+      <button onclick="restartGame()">🏠 タイトルへ戻る</button>
+    </div>
+
+    <div class="result-list hidden" id="resultList"></div>
+
+    <div class="used-words">
+      <strong>使用済みワード:</strong>
+      <ul id="usedWords"></ul>
+    </div>
+  </div>
+</div>
+
+<script>
+let csvData = [];
+let usedWords = new Set();
+let scores = [];
+let totalPlayers = 2;
+let currentPlayer = 1;
+let initialTarget = 100;
+let remainingPoints = 100;
+let isGameOver = false;
+let recentHits = [];
+
+document.getElementById('targetMode').addEventListener('change', e => {
+  const manualInput = document.getElementById('targetValue');
+  manualInput.classList.toggle('hidden', e.target.value !== 'manual');
+});
+
+function startGame() {
+  totalPlayers = parseInt(document.getElementById("playerCount").value);
+  const mode = document.getElementById("targetMode").value;
+
+  if (mode === "manual") {
+    initialTarget = Math.min(Math.max(parseInt(document.getElementById("targetValue").value || 100), 100), 8192);
+  } else {
+    initialTarget = Math.floor(Math.random() * (1280 - 100 + 1)) + 100;
+  }
+  remainingPoints = initialTarget;
+  scores = Array(totalPlayers).fill(0);
+  currentPlayer = 1;
+  usedWords = new Set();
+  isGameOver = false;
+
+  document.getElementById("setupSection").classList.add("hidden");
+  document.getElementById("gameSection").classList.remove("hidden");
+  updateScoreDisplay();
+
+  document.getElementById("usedWords").innerHTML = "";
+  document.getElementById("keywordInput").value = "";
+  for (let i = 1; i <= 4; i++) document.getElementById(`digit${i}`).textContent = "?";
+  document.getElementById("resultMessage").innerText = "";
+  document.getElementById("resultList").classList.add("hidden");
+}
+
+function updateScoreDisplay() {
+  const current = `<span class="score-value">${remainingPoints}</span>`;
+  const target = `<span class="highlight-target">${initialTarget}</span>`;
+  document.getElementById("scoreInfo").innerHTML = `残りポイント: ${current} / ${target}`;
+
+  const container = document.getElementById("playerScores");
+  container.innerHTML = "";
+  scores.forEach((score, i) => {
+    const div = document.createElement("div");
+    div.innerHTML = `P${i + 1}: <span class="player-score-value">${score}</span>点`;
+    container.appendChild(div);
+  });
+}
+
+function searchKeyword() {
+  const input = document.getElementById("keywordInput").value.trim();
+  if (!input || isGameOver || usedWords.has(input)) return;
+
+  usedWords.add(input);
+  const li = document.createElement("li");
+  li.textContent = input;
+  document.getElementById("usedWords").appendChild(li);
+
+  const norm = input.normalize("NFKC").toLowerCase();
+  recentHits = [];
+
+  csvData.forEach(row => {
+    const fields = [row["機種名"], row["メーカー"], row["導入月"], row["号機"], row["タイプ"]];
+    const matched = fields.some(field => field?.normalize("NFKC").toLowerCase().includes(norm));
+    if (matched) recentHits.push(row["機種名"]);
+  });
+
+  const digits = String(recentHits.length).padStart(4, "0").split("");
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(`digit${i}`).textContent = "?";
+    document.getElementById(`digit${i}`).dataset.value = digits[i - 1];
+  }
+
+  document.getElementById("resultMessage").innerText = "";
+  document.getElementById("resultList").classList.add("hidden");
+}
+
+function revealDigit(n) {
+  const el = document.getElementById(`digit${n}`);
+  el.textContent = el.dataset.value || "?";
+
+  const digits = Array.from({length: 4}, (_, i) => document.getElementById(`digit${i + 1}`).textContent);
+  if (digits.includes("?")) return;
+
+  const gained = parseInt(digits.join(""));
+  const idx = currentPlayer - 1;
+
+  if (gained === remainingPoints) {
+    scores[idx] += 8192;
+    isGameOver = true;
+    document.getElementById("resultMessage").innerText = `ピッタリ！P${currentPlayer} が8192点で勝利！`;
+  } else if (gained > remainingPoints) {
+    scores[idx] = 0;
+    isGameOver = true;
+    document.getElementById("resultMessage").innerText = `超過によりスコア0点に`;
+  } else {
+    scores[idx] += gained;
+    remainingPoints -= gained;
+    document.getElementById("resultMessage").innerText = `${gained}点獲得！（残り${remainingPoints}）`;
+  }
+
+  updateScoreDisplay();
+
+  if (isGameOver || remainingPoints <= 0) {
+    isGameOver = true;
+    const max = Math.max(...scores);
+    const winner = scores.findIndex(s => s === max);
+    document.getElementById("resultMessage").innerText += `\n🎉 プレイヤー${winner + 1}が${max}点で勝利！`;
+  }
+}
+
+function nextPlayer() {
+  if (isGameOver) return;
+  currentPlayer = (currentPlayer % totalPlayers) + 1;
+  document.getElementById("keywordInput").value = "";
+  for (let i = 1; i <= 4; i++) document.getElementById(`digit${i}`).textContent = "?";
+  document.getElementById("resultMessage").innerText = "";
+  document.getElementById("resultList").classList.add("hidden");
+}
+
+function showResults() {
+  const div = document.getElementById("resultList");
+  div.innerHTML = "<strong>ヒット機種:</strong><ul>" +
+    recentHits.slice(0, 30).map(name => `<li>${name}</li>`).join("") +
+    "</ul>";
+  div.classList.remove("hidden");
+}
+
+function restartGame() {
+  document.getElementById("gameSection").classList.add("hidden");
+  document.getElementById("setupSection").classList.remove("hidden");
+}
+
+// CSV読み込み
+fetch('machinelist.csv')
+  .then(res => res.text())
+  .then(text => {
+    const lines = text.split('\n');
+    const headers = lines[0].trim().split(',').map(h => h.trim());
+    csvData = lines.slice(1)
+      .filter(line => line.trim())
+      .map(line => {
+        const values = line.split(',').map(v => v.trim());
+        const row = {};
+        headers.forEach((h, i) => row[h] = values[i] || "");
+        return row;
+      });
+  });
+</script>
+
+</body>
+</html>
