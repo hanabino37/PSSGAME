@@ -2,17 +2,11 @@ import { bindUI, renderAll, setInteractivity } from './ui/ui.js';
 import { createInitialState } from './store/state.js';
 import { Game } from './logic/game.js';
 import { loadCSV } from './data/csv.js';
+import { extractYear } from './utils/date.js';
 
 const state = createInitialState();
 const ui = bindUI();
 const game = new Game(state, ui);
-
-// 導入月から年だけを抜き出す小関数（4桁の最初の数字を採用）
-function extractYear(str) {
-  const t = (str ?? '').normalize('NFKC');
-  const m = t.match(/(\d{4})/);
-  return m ? m[1] : '';
-}
 
 (async function bootstrap() {
   try {

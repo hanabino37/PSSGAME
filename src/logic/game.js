@@ -1,10 +1,5 @@
 import { States, can } from './stateMachine.js';
-
-function extractYear(str) {
-  const t = (str ?? '').normalize('NFKC');
-  const m = t.match(/(\d{4})/);
-  return m ? m[1] : '';
-}
+import { extractYear } from '../utils/date.js';
 
 export class Game {
   constructor(state, ui) {
