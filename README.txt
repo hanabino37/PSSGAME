@@ -13,3 +13,5 @@ P.S.Search ESM Starter
 次のステップ:
 - 既存の検索/リザルト/桁開示ロジックを src/logic/game.js と src/ui/ui.js に移植。
 - CSV が大きい場合は Web Worker 化へ進める。
+
+Codex review準備
