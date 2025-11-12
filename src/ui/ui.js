@@ -47,20 +47,22 @@ export function bindUI() {
 
       setDigitValue(i, v){
         const box = this.digits[i];
-        // ① まずアニメを無効化した状態で黒塗りを即時適用
+
+        // ① アニメを無効化した状態で即座にカバーを閉じる
         box.classList.add('no-anim');
         box.classList.add('covered');
         box.classList.remove('opened');   // 未公開状態に戻す
 
-        // ② 値をセット（下レイヤーなので見えない）
+        // ② 値をセット（覆いの下にあるため即時反映でも見えない）
         box.dataset.value = v;
         const span = box.querySelector('.digit-value');
         if (span) span.textContent = v;
 
-        // ③ 次フレームで no-anim を外して、
-       //    以降の「公開」アニメは通常通り動くようにする
+        // ③ レイアウト確定後にアニメ有効化。Safari 等でのチラ見え防止
         requestAnimationFrame(() => {
-          box.classList.remove('no-anim');
+          requestAnimationFrame(() => {
+            box.classList.remove('no-anim');
+          });
         });
       },
 
@@ -204,6 +206,7 @@ export function setInteractivity(ui, state, game) {
     ui.keywordInput.disabled = false;
     ui.usedWords.innerHTML = '';
     ui.keywordInput.value = '';
+    ui.yearSelect?.removeAttribute('disabled');
     ui.digits.forEach(box => {
       box.dataset.value = '';
       box.classList.remove('covered','opened');       // カバーOFF
@@ -271,7 +274,10 @@ export function setInteractivity(ui, state, game) {
       return;
     }
 
-    // 履歴
+    const digits = game.search(keyword, { field: andField, value: andValue });
+    if (!digits) return;
+
+    // 履歴（検索成功時のみ追加）
     const li = document.createElement('li');
     const andLabel = andField === 'none' ? '' :
       andField === 'year'  ? ` / AND: ${andValue}年` :
@@ -279,9 +285,6 @@ export function setInteractivity(ui, state, game) {
       ` / AND: 機種名=${andValue}`;
     li.textContent = keyword ? `${keyword}${andLabel}` : andLabel.replace(/^ \/\s*/, '');
     ui.usedWords.appendChild(li);
-
-    const digits = game.search(keyword, { field: andField, value: andValue });
-    if (!digits) return;
 
     // UI更新
     updateFilterChips(ui, state, andField, andValue);
@@ -316,9 +319,12 @@ export function setInteractivity(ui, state, game) {
       // ★ EXロックが発動したら UI を強制更新
       if (res.exLockYear) {
         ui.restrictMode.value = 'year';
-        ui.restrictMode.disabled = true; // 以降、縛りは変更不可
         ui.restrictMode.dispatchEvent(new Event('change')); // 年セレクト表示など反映
-        ui.yearSelect.value = res.exLockYear;
+        ui.restrictMode.disabled = true; // 以降、縛りは変更不可
+        if (ui.yearSelect) {
+          ui.yearSelect.value = res.exLockYear;
+          ui.yearSelect.disabled = true;
+        }
         updateFilterChips(ui, state, 'year', res.exLockYear);
         ui.showMessage(`<strong style="color:#1d4ed8;">EXロック発動！</strong> 導入年=${res.exLockYear}年`);
       } else {
@@ -382,7 +388,7 @@ export function setInteractivity(ui, state, game) {
     applyTargetModeUI();
 
     if (ui.restrictMode) { ui.restrictMode.value = 'none'; ui.restrictMode.disabled = false; }
-    if (ui.yearSelect) ui.yearSelect.value = '';
+    if (ui.yearSelect) { ui.yearSelect.value = ''; ui.yearSelect.disabled = false; }
     if (ui.andField) { ui.andField.disabled = false; ui.andField.value = 'none'; }
     if (ui.andValue) ui.andValue.value = '';
     if (ui.andYearSelect) ui.andYearSelect.value = '';
