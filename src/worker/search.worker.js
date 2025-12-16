@@ -14,7 +14,7 @@ self.onmessage = async (e) => {
             const text = await res.text();
             csvData = parseCSV(text);
 
-            csvData = parseCSV(text);
+
 
 
             // Create years list for main thread (for Setup and ExLock)

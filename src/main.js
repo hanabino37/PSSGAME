@@ -33,11 +33,21 @@ const game = new Game(state, ui);
     });
 
     // Fix: Use BASE_URL for correct CSV path in subdirectory deployments
-    const csvPath = (import.meta.env.BASE_URL || '/') + 'machinelist.csv';
-    // Ensure no double slash if BASE_URL ends with /
-    const sanitizedPath = csvPath.replace('//', '/');
+    // import.meta.env.BASE_URL is set by vite.config.js (e.g. '/PSSGAME/')
+    const baseUrl = import.meta.env.BASE_URL;
+    const csvUrl = new URL(baseUrl + 'machinelist.csv', import.meta.url).href;
 
-    worker.postMessage({ type: 'init', payload: { path: sanitizedPath } });
+    // Fallback if URL construction fails or for simpler concatenation (User suggestion):
+    // const csvPath = (import.meta.env.BASE_URL || '/') + 'machinelist.csv';
+    // worker.postMessage({ type: 'init', payload: { path: csvPath } });
+
+    // Using simple concatenation as it is often more robust with Vite's replacement than new URL() on some setups, 
+    // BUT user asked for "Mainスレッドから正しいCSVのURLを渡す方式"
+    // "import.meta.env.BASE_URL + 'machinelist.csv' のような文字列を生成"
+
+    const csvPath = (baseUrl.endsWith('/') ? baseUrl : baseUrl + '/') + 'machinelist.csv';
+
+    worker.postMessage({ type: 'init', payload: { path: csvPath } });
 
   } catch (e) {
     console.error(e);
