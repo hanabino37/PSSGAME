@@ -3,7 +3,7 @@ import { createInitialState } from './store/state.js';
 import { Game } from './logic/game.js';
 
 
-import SearchWorker from './worker/search.worker.js?worker';
+// import SearchWorker from './worker/search.worker.js?worker'; // Removed in favor of URL constructor
 
 const state = createInitialState();
 const ui = bindUI();
@@ -11,7 +11,8 @@ const game = new Game(state, ui);
 
 (async function bootstrap() {
   try {
-    const worker = new SearchWorker();
+    // Fix: Use standard Worker constructor with standard URL resolution for relative paths
+    const worker = new Worker(new URL('./worker/search.worker.js', import.meta.url), { type: 'module' });
     game.setWorker(worker);
 
     // Redundant onmessage removed
@@ -31,7 +32,12 @@ const game = new Game(state, ui);
       }
     });
 
-    worker.postMessage({ type: 'init', payload: { path: '/machinelist.csv' } });
+    // Fix: Use BASE_URL for correct CSV path in subdirectory deployments
+    const csvPath = (import.meta.env.BASE_URL || '/') + 'machinelist.csv';
+    // Ensure no double slash if BASE_URL ends with /
+    const sanitizedPath = csvPath.replace('//', '/');
+
+    worker.postMessage({ type: 'init', payload: { path: sanitizedPath } });
 
   } catch (e) {
     console.error(e);
