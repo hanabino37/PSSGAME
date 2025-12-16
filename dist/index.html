@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>P.S.Search</title>
+    <link rel="preload" as="font" href="/assets/Oswald-Bold-BabcqNWH.woff2" type="font/woff2" crossorigin>
+    <link rel="preload" as="font" href="/assets/DSEG7Modern-Bold-B_JOyP8w.woff2" type="font/woff2" crossorigin>
+    <script type="module" crossorigin src="/assets/index-D3StRIeV.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CyvyCiWL.css">
+  </head>
+  <body>
+    <header>
+      <h1><span class="highlight">P.S.S</span>earch</h1>
+    </header>
+
+    <div class="wrapper">
+      <section id="setupSection">
+        <div class="box">
+          <label>プレイヤー人数：
+            <select id="playerCount">
+              <option value="1">1人</option>
+              <option value="2" selected>2人</option>
+              <option value="3">3人</option>
+              <option value="4">4人</option>
+              <option value="5">5人</option>
+              <option value="6">6人</option>
+              <option value="7">7人</option>
+              <option value="8">8人</option>
+            </select>
+          </label>
+        </div>
+        <div class="box">
+          <label>目的値：
+            <select id="targetMode">
+              <option value="random" selected>ランダム</option>
+              <option value="manual">設定</option>
+            </select>
+            <input type="number" id="targetValue" value="100" min="100" max="8192" style="width:150px;" class="hidden" />
+          </label>
+        </div>
+
+        <!-- 目的値の範囲（そのままでOK） -->
+        <div class="box" id="randomRangeBox" style="display:none;">
+          <label>下限値:<input type="number" id="randomMin" value="100" min="1" style="width:100px;" /></label>
+          <label>上限値:<input type="number" id="randomMax" value="999" min="1" style="width:100px;" /></label>
+        </div>
+
+        <!-- 縛り -->
+        <div class="box">
+          <label>縛り：
+            <select id="restrictMode">
+              <option value="none" selected>なし</option>
+              <option value="name">機種名</option>
+              <option value="maker">メーカー</option>
+              <option value="year">導入年</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- 縛り＝導入年のときだけ表示する年プルダウン -->
+        <div class="box hidden" id="yearBox">
+          <label>年：
+            <select id="yearSelect">
+              <option value="">年を選択</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- 追加条件（AND） -->
+        <div class="box" id="andBox">
+          <label>追加条件（AND）：
+            <select id="andField">
+              <option value="none" selected>なし</option>
+              <option value="name">機種名</option>
+              <option value="maker">メーカー</option>
+              <option value="year">導入年</option>
+            </select>
+          </label>
+          <input type="text" id="andValue" placeholder="追加条件の値を入力" />
+          <select id="andYearSelect" class="hidden">
+            <option value="">年を選択</option>
+          </select>
+        </div>
+
+        <!-- EXロック：残りポイントが9以下で導入年を強制 -->
+        <div class="box">
+          <label>EXロック：
+            <select id="exLockMode">
+              <option value="off" selected>OFF</option>
+              <option value="on">ON</option>
+            </select>
+          </label>
+          <small style="margin-left:8px;color:#6b7280;">残りポイントが9以下で導入年がランダムにロック</small>
+        </div>
+
+        <div class="box">
+          <button class="btn" id="startBtn">ゲーム開始</button>
+        </div>
+
+      </section>
+
+      <section id="gameSection" class="hidden">
+        <div class="score-info" id="scoreInfo">残りポイント: 100 / 100</div>
+        <div class="player-scores" id="playerScores"></div>
+
+        <div class="search-area">
+          <input type="text" id="keywordInput" placeholder="検索ワードを入力" />
+          <button id="searchButton">🔍</button>
+        </div>
+
+        <div id="filterChips" class="filter-chips hidden"></div>
+
+        <div class="digits">
+          <div class="digit-box" id="digit1">
+            <span class="digit-value">?</span>
+            <span class="digit-cover"></span>
+          </div>
+          <div class="digit-box" id="digit2">
+            <span class="digit-value">?</span>
+            <span class="digit-cover"></span>
+          </div>
+          <div class="digit-box" id="digit3">
+            <span class="digit-value">?</span>
+            <span class="digit-cover"></span>
+          </div>
+          <div class="digit-box" id="digit4">
+            <span class="digit-value">?</span>
+            <span class="digit-cover"></span>
+          </div>
+        </div>
+
+        <div class="digit-buttons">
+          <button class="reveal-btn" data-digit="1">千</button>
+          <button class="reveal-btn" data-digit="2">百</button>
+          <button class="reveal-btn" data-digit="3">十</button>
+          <button class="reveal-btn" data-digit="4">一</button>
+        </div>
+
+        <div class="result-message" id="resultMessage"></div>
+
+        <div class="controls">
+          <button id="nextPlayerButton">次のプレイヤーへ</button>
+          <button id="showResultsButton">🔍 リザルトを表示</button>
+          <button id="restartButton">🏠 タイトルへ戻る</button>
+        </div>
+
+        <div class="result-list hidden" id="resultList"></div>
+        <div class="used-words"><strong>使用済みワード:</strong><ul id="usedWords"></ul></div>
+      </section>
+    </div>
+
+  </body>
+</html>

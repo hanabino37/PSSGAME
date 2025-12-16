@@ -1,10 +1,36 @@
 import { States, can } from './stateMachine.js';
-import { extractYear } from '../utils/date.js';
+// import { extractYear } from '../utils/date.js'; // No longer needed directly here for search, but check use in revealIfAllOpened
 
 export class Game {
   constructor(state, ui) {
     this.state = state;
     this.ui = ui;
+    this.worker = null;
+    this.pendingSearches = new Map();
+  }
+
+  setWorker(worker) {
+    this.worker = worker;
+    this.worker.addEventListener('message', (e) => {
+      const { type, digits, recentHits, id, error } = e.data;
+      if (type === 'search-result') {
+        const resolve = this.pendingSearches.get(id);
+        if (resolve) {
+          // Update state
+          this.state.recentHits = recentHits;
+          this.state.fsm = States.Searching;
+          // this.state.lastKeyword is set in search()
+          if (this.state.lastKeyword) this.state.usedWords.add(this.state.lastKeyword);
+
+
+
+          resolve(digits);
+          this.pendingSearches.delete(id);
+        }
+      } else if (type === 'error') {
+        console.error('Worker error:', error);
+      }
+    });
   }
 
   // ★ restrict を受け取る（デフォルト none）
@@ -38,39 +64,21 @@ export class Game {
   }
 
   /** 検索→ recentHits を更新（keyword ＋ AND 条件）し、4桁の数字配列を返す */
-  search(keyword, andCond = { field: 'none', value: '' }) {
+  async search(keyword, andCond = { field: 'none', value: '' }) {
     if (!can('search', this.state)) return null;
-    const s = this.state;
 
-    const norm = (keyword ?? '').normalize('NFKC').toLowerCase();
-    s.usedWords.add(keyword);
-    s.recentHits = [];
+    // Store keyword temporarily to add to usedWords upon worker response (or just add here if we trust it)
+    this.state.lastKeyword = keyword;
 
-    for (const row of s.csvData) {
-       // ① メイン（全列ゆるく検索）※空なら true で素通り
-      const fields = Object.values(row);
-      const mainHit = norm ? fields.some(f => f?.normalize('NFKC').toLowerCase().includes(norm)) : true;
-
-      // ② AND 条件（none のときは true）
-      let andHit = true;
-      const f = andCond?.field || 'none';
-      const v = (andCond?.value ?? '').normalize('NFKC').toLowerCase();
-      if (f === 'name') {
-        andHit = (row['機種名'] ?? '').normalize('NFKC').toLowerCase().includes(v);
-      } else if (f === 'maker') {
-        andHit = (row['メーカー'] ?? '').normalize('NFKC').toLowerCase().includes(v);
-      } else if (f === 'year') {
-        const y = extractYear(row['導入月']);
-        andHit = !!v && y === v;  // v は 4桁年
-      }
-
-      const matched = mainHit && andHit;
-
-      if (matched) s.recentHits.push(row['機種名']);
-    }
-    s.fsm = States.Searching;
-
-    return String(s.recentHits.length).padStart(4, '0').split('');
+    return new Promise((resolve) => {
+      const id = Math.random().toString(36).substr(2, 9);
+      this.pendingSearches.set(id, resolve);
+      this.worker.postMessage({
+        type: 'search',
+        payload: { keyword, andCond },
+        id
+      });
+    });
   }
 
   /** 桁公開後、全桁開いていれば採点して結果オブジェクトを返す */
@@ -83,6 +91,8 @@ export class Game {
 
     const gained = parseInt(digits.join(''), 10);
     const pi = s.currentPlayer - 1;
+
+
 
     if (gained === s.remainingPoints) {
       s.scores[pi] += 8192;
@@ -102,10 +112,11 @@ export class Game {
     // ★ EXロック判定：有効・未発動・残り9以下(>0)
     let exYear = null;
     if (s.exLockEnabled && !s.exLocked && s.remainingPoints > 0 && s.remainingPoints <= 9) {
-      // 候補年（state.years が空ならCSVから生成）
-      const pool = (s.years && s.years.length)
-        ? s.years
-        : Array.from(new Set(s.csvData.map(r => extractYear(r['導入月'])).filter(y => /^\d{4}$/.test(y))));
+      // 候補年（state.years は main.js で worker から受信済み）
+      // Note: CSVData is no longer in state, so we RELY on state.years being populated.
+      // If state.years is empty, we cannot engage Ex Lock or must handle it gracefully.
+      const pool = s.years || [];
+
       if (pool.length) {
         exYear = pool[Math.floor(Math.random() * pool.length)];
         s.exLocked = true;
